@@ -133,6 +133,7 @@ const start = () => {
         }
     });
 };
-
-start();
-console.log("🚀 Бот запущен (Gemini Mode)!");
+bot.deleteWebHook().then(() => {
+    start();
+    console.log("🚀 Бот запущен (Gemini Mode)!");
+ });
