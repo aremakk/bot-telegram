@@ -42,29 +42,23 @@ setInterval(async () => {
 
 async function getAIResponse(prompt) {
     try {
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${googleApiKey}`;        // ВАЖНО: Прямой API требует именно такую структуру contents
-        const payload = {
-            contents: [{
-                parts: [{ text: prompt }]
-            }]
-        };
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${googleApiKey}`;
 
-        console.log("--- Отправка запроса в Gemini ---");
-        const response = await axios.post(url, payload);
+        const response = await axios.post(url, {
+            contents: [{ parts: [{ text: prompt }] }]
+        });
 
-        if (response.data.candidates && response.data.candidates[0].content) {
-            return response.data.candidates[0].content.parts[0].text;
-        } else {
-            return "🤖 ИИ прислал пустой ответ.";
-        }
+        return response.data.candidates?.[0]?.content?.parts?.[0]?.text || "Пустой ответ";
+
     } catch (error) {
-        // ЭТОТ БЛОК ПОКАЖЕТ РЕАЛЬНУЮ ПРИЧИНУ В ЛОГАХ
-        if (error.response) {
-            console.error("❌ Ошибка Gemini API:", JSON.stringify(error.response.data, null, 2));
-        } else {
-            console.error("❌ Ошибка Сети/Axios:", error.message);
+        if (error.response?.status === 429) {
+            console.log("⏳ Лимит достигнут, жду...");
+            await new Promise(res => setTimeout(res, 30000));
+            return "🤖 Слишком много запросов, попробуй позже.";
         }
-        return "🤖 Ошибка связи с Gemini. Посмотри логи в Render.";
+
+        console.error(error.response?.data || error.message);
+        return "🤖 Ошибка AI.";
     }
 }
 
