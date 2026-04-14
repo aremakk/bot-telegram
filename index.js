@@ -168,5 +168,8 @@ const start = () => {
 };
 bot.deleteWebHook().then(() => {
     start();
-    console.log("🚀 Бот запущен (Gemini Mode)!");
- });
+    console.log("🚀 Бот запущен (Gemini Direct Mode)!");
+}).catch(err => {
+    console.error("Ошибка очистки Webhook:", err);
+    start(); // Всё равно пробуем запуститься
+});
