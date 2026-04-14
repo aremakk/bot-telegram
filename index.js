@@ -22,7 +22,7 @@ if (!googleApiKey) {
 
 // --- 3. ИНИЦИАЛИЗАЦИЯ GEMINI ---
 const genAI = new GoogleGenerativeAI(googleApiKey || "dummy_key");
-const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" }, { apiVersion: 'v1' });
 
 // --- 4. СЕРВЕР И САМОПИНГ ---
 http.createServer((req, res) => res.end('Bot is running')).listen(PORT);
