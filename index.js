@@ -42,8 +42,7 @@ setInterval(async () => {
 
 async function getAIResponse(prompt) {
     try {
-        const url = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${googleApiKey}`;
-        
+        const url = `https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent?key=${googleApiKey}`;
         // ВАЖНО: Прямой API требует именно такую структуру contents
         const payload = {
             contents: [{
