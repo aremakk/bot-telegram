@@ -49,7 +49,16 @@ async function getAIResponse(prompt) {
 }
 
 // --- 6. ОСНОВНОЙ БОТ ---
-const bot = new TelegramApi(token, { polling: true });
+const bot = new TelegramApi(token, { 
+    polling: {
+        autoStart: true,
+        params: {
+            timeout: 10
+        }
+    } 
+});
+
+
 const aiState = {};
 const chats = {};
 
