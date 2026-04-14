@@ -90,9 +90,9 @@ const start = () => {
 
         if (!text) return;
 
-        if (!WHITE_LIST.includes(userId)) {
-            return bot.sendMessage(chatId, "⚠️ Извини, это приватный бот.");
-        }
+        // if (!WHITE_LIST.includes(userId)) {
+        //     return bot.sendMessage(chatId, "⚠️ Извини, это приватный бот.");
+        // }
 
         if (text === '/start') return bot.sendMessage(chatId, `Доступ подтвержден. Привет, Босс!`);
         
@@ -103,7 +103,8 @@ const start = () => {
                 const res = await axios.get('https://api.exchangerate-api.com/v4/latest/USD');
                 const rub = res.data.rates.RUB;
                 const kzt = res.data.rates.KZT;
-                return bot.sendMessage(chatId, `📈 **Курс валют за 1$:**\n\n🇰🇿 Тенге: **${kzt.toFixed(2)}**\n🇷🇺 Рубль: **${rub.toFixed(2)}**`, { parse_mode: 'Markdown' });
+                const usd = res.data.rates.USD;
+                return bot.sendMessage(chatId, `📈 **Курс валют за 1$:**\n\n🇰🇿 Тенге: **${kzt.toFixed(2)}**\n🇷🇺 Рубль: **${rub.toFixed(2)}**\n Dollar: **${usd.toFixed(2)}`, { parse_mode: 'Markdown' });
             } catch (e) {
                 return bot.sendMessage(chatId, "❌ Ошибка API валют.");
             }

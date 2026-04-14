@@ -19,13 +19,5 @@ module.exports = {
                 
             ]
         })
-    },
-
-    aiOption: {
-        reply_markup: JSON.stringify({
-            inline_keyboard: [
-                [{text: '❌ Выключить ИИ', callback_data: '/stop_ai'}]
-            ]
-        })
     }
 }
