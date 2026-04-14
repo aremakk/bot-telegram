@@ -7,6 +7,10 @@ const { GoogleGenerativeAI } = require("@google/generative-ai");
 const http = require('http');
 
 
+// --- ОБЪЯВЛЕНИЕ ПЕРЕМЕННЫХ ДЛЯ СЕРВЕРА ---
+const PORT = process.env.PORT || 3000;
+const SERVER_URL = `https://assistbot-m7w5.onrender.com`; // Твой URL от Render
+
 http.createServer((req, res) => res.end('Bot is running')).listen(PORT);
 
 // --- ФУНКЦИЯ КРОНА (САМОПИНГ) ---
