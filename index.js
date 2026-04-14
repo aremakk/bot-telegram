@@ -37,14 +37,28 @@ setInterval(async () => {
 }, 600000); // 10 минут
 
 // --- 5. ФУНКЦИЯ GEMINI ---
+// В начале файла убедись, что axios подключен
+// const axios = require('axios');
+
 async function getAIResponse(prompt) {
     try {
-        const result = await model.generateContent(prompt);
-        const response = await result.response;
-        return response.text();
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${googleApiKey}`;
+        
+        const data = {
+            contents: [{
+                parts: [{ text: prompt }]
+            }]
+        };
+
+        const response = await axios.post(url, data, {
+            headers: { 'Content-Type': 'application/json' }
+        });
+
+        // Путь к тексту в ответе Gemini
+        return response.data.candidates[0].content.parts[0].text;
     } catch (error) {
-        console.error("Gemini Error:", error);
-        return "🤖 Ошибка связи с Gemini. Проверь логи в Render.";
+        console.error("Gemini Direct Error:", error.response ? error.response.data : error.message);
+        return "🤖 Ошибка связи с ИИ. Попробуй позже.";
     }
 }
 
