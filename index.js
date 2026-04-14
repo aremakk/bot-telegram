@@ -1,7 +1,7 @@
 const TelegramApi = require('node-telegram-bot-api');
 const axios = require('axios');
 const schedule = require('node-schedule');
-// const Groq = require("groq-sdk"); // Поменяли библиотеку
+const Groq = require("groq-sdk"); // Поменяли библиотеку
 const { gameOption, againOption, aiOption } = require('./options.js');
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const http = require('http');
@@ -22,74 +22,74 @@ setInterval(async () => {
 
 // --- КОНФИГУРАЦИЯ ---
 const token = process.env.TELEGRAM_TOKEN; 
-// const groqKey = process.env.GROQ_API_KEY;
+const groqKey = process.env.GROQ_API_KEY;
 const WHITE_LIST = [1204470331]; 
 
 // --- ИНИЦИАЛИЗАЦИЯ ---
 const bot = new TelegramApi(token, { polling: true });
-// const groq = new Groq({ apiKey: groqKey });
+const groq = new Groq({ apiKey: groqKey });
 
 const chats = {};   // Хранилище для игры
 const aiState = {};
 
 // Исправлено: название переменной и убрана опечатка в process
-const googleApiKey = process.env.GOOGLE_API_KEY;
+// const googleApiKey = process.env.GOOGLE_API_KEY;
 
 // Проверка наличия ключа перед инициализацией
-if (!googleApiKey) {
-    console.error("КРИТИЧЕСКАЯ ОШИБКА: GOOGLE_API_KEY не установлен в переменных окружения!");
-}
+// if (!googleApiKey) {
+//     console.error("КРИТИЧЕСКАЯ ОШИБКА: GOOGLE_API_KEY не установлен в переменных окружения!");
+// }
 
-const genAI = new GoogleGenerativeAI(googleApiKey || "dummy_key");
+// const genAI = new GoogleGenerativeAI(googleApiKey || "dummy_key");
 
 // Используем модель с явным указанием версии для обхода ошибок 404
-const model = genAI.getGenerativeModel({ 
-    model: "gemini-1.5-flash" 
-}, { apiVersion: 'v1' });
+// const model = genAI.getGenerativeModel({ 
+//     model: "gemini-1.5-flash" 
+// }, { apiVersion: 'v1' });
 
-async function getAIResponse(prompt) {
-    try {
-        // Мы можем добавить системную инструкцию прямо в запрос
-        const result = await model.generateContent(prompt);
-        const response = await result.response;
-        return response.text();
-    } catch (error) {
-        console.error("Gemini Error:", error);
-        // Если ошибка 403, значит ключ не подошел или регион заблокирован
-        if (error.message.includes('403')) {
-            return "🤖 Ошибка 403: Google блокирует запрос. На Render это странно, проверь API ключ.";
-        }
-        return "🤖 Ошибка связи с Gemini. Проверь логи в Render или API ключ.";
-    }
-}
-
-// --- ФУНКЦИЯ ИИ (GROQ) ---
 // async function getAIResponse(prompt) {
 //     try {
-//         const completion = await groq.chat.completions.create({
-//             messages: [
-//                 {
-//                     role: "system",
-//                     content: "Ты — полезный ИИ-помощник. Отвечай кратко и по делу на русском языке."
-//                 },
-//                 {
-//                     role: "user",
-//                     content: prompt,
-//                 },
-//             ],
-//             model: "llama-3.3-70b-versatile", // Самая быстрая и бесплатная модель
-//             temperature: 0.7,
-//         });
-
-//         return completion.choices[0]?.message?.content || "🤖 Не удалось сформировать ответ.";
+//         // Мы можем добавить системную инструкцию прямо в запрос
+//         const result = await model.generateContent(prompt);
+//         const response = await result.response;
+//         return response.text();
 //     } catch (error) {
-//         console.error("Groq Error:", error);
-//         if (error.status === 429) {
-//             return "⚠️ Слишком много запросов! Подожди немного.";
+//         console.error("Gemini Error:", error);
+//         // Если ошибка 403, значит ключ не подошел или регион заблокирован
+//         if (error.message.includes('403')) {
+//             return "🤖 Ошибка 403: Google блокирует запрос. На Render это странно, проверь API ключ.";
 //         }
-//         return "🤖 Ошибка связи с ИИ. Проверь API ключ.";
+//         return "🤖 Ошибка связи с Gemini. Проверь логи в Render или API ключ.";
 //     }
 // }
+
+// --- ФУНКЦИЯ ИИ (GROQ) ---
+async function getAIResponse(prompt) {
+    try {
+        const completion = await groq.chat.completions.create({
+            messages: [
+                {
+                    role: "system",
+                    content: "Ты — полезный ИИ-помощник. Отвечай кратко и по делу на русском языке."
+                },
+                {
+                    role: "user",
+                    content: prompt,
+                },
+            ],
+            model: "llama-3.3-70b-versatile", // Самая быстрая и бесплатная модель
+            temperature: 0.7,
+        });
+
+        return completion.choices[0]?.message?.content || "🤖 Не удалось сформировать ответ.";
+    } catch (error) {
+        console.error("Groq Error:", error);
+        if (error.status === 429) {
+            return "⚠️ Слишком много запросов! Подожди немного.";
+        }
+        return "🤖 Ошибка связи с ИИ. Проверь API ключ.";
+    }
+}
 
 // Дальше оставляй свой код start() и обработку сообщений без изменений!
 const startGame = async (chatId) => {
