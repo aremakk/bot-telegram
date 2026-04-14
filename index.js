@@ -2,7 +2,7 @@ const TelegramApi = require('node-telegram-bot-api');
 const axios = require('axios');
 const schedule = require('node-schedule');
 const { gameOption, againOption } = require('./options.js');
-const { GoogleGenerativeAI } = require("@google/generative-ai");
+// const { GoogleGenerativeAI } = require("@google/generative-ai");
 const http = require('http');
 
 // --- 1. ПЕРЕМЕННЫЕ ОКРУЖЕНИЯ ---
@@ -21,8 +21,8 @@ if (!googleApiKey) {
 }
 
 // --- 3. ИНИЦИАЛИЗАЦИЯ GEMINI ---
-const genAI = new GoogleGenerativeAI(googleApiKey || "dummy_key");
-const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" }, { apiVersion: 'v1' });
+// const genAI = new GoogleGenerativeAI(googleApiKey || "dummy_key");
+// const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" }, { apiVersion: 'v1' });
 
 // --- 4. СЕРВЕР И САМОПИНГ ---
 http.createServer((req, res) => res.end('Bot is running')).listen(PORT);
@@ -42,23 +42,33 @@ setInterval(async () => {
 
 async function getAIResponse(prompt) {
     try {
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${googleApiKey}`;
+        // Используем актуальную стабильную версию v1
+        const url = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${googleApiKey}`;
         
-        const data = {
+        const payload = {
             contents: [{
                 parts: [{ text: prompt }]
             }]
         };
 
-        const response = await axios.post(url, data, {
+        const response = await axios.post(url, payload, {
             headers: { 'Content-Type': 'application/json' }
         });
 
-        // Путь к тексту в ответе Gemini
-        return response.data.candidates[0].content.parts[0].text;
+        // Проверка структуры ответа
+        if (response.data.candidates && response.data.candidates[0].content) {
+            return response.data.candidates[0].content.parts[0].text;
+        } else {
+            return "🤖 ИИ прислал пустой ответ.";
+        }
     } catch (error) {
+        // Логируем детали ошибки для QA-анализа
         console.error("Gemini Direct Error:", error.response ? error.response.data : error.message);
-        return "🤖 Ошибка связи с ИИ. Попробуй позже.";
+        
+        if (error.response && error.response.status === 404) {
+            return "🤖 Ошибка 404: Модель не найдена. Проверь правильность названия в URL.";
+        }
+        return "🤖 Произошла ошибка при обращении к Gemini.";
     }
 }
 
