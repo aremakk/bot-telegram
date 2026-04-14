@@ -42,8 +42,7 @@ setInterval(async () => {
 
 async function getAIResponse(prompt) {
     try {
-        const url = `https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent?key=${googleApiKey}`;
-        // ВАЖНО: Прямой API требует именно такую структуру contents
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${googleApiKey}`;        // ВАЖНО: Прямой API требует именно такую структуру contents
         const payload = {
             contents: [{
                 parts: [{ text: prompt }]
@@ -70,14 +69,7 @@ async function getAIResponse(prompt) {
 }
 
 // --- 6. ОСНОВНОЙ БОТ ---
-const bot = new TelegramApi(token, { 
-    polling: {
-        autoStart: true,
-        params: {
-            timeout: 10
-        }
-    } 
-});
+const bot = new TelegramApi(token, { polling: false });
 
 
 const aiState = {};
@@ -164,6 +156,7 @@ const start = () => {
     });
 };
 bot.deleteWebHook().then(() => {
+    bot.startPolling();
     start();
     console.log("🚀 Бот запущен (Gemini Direct Mode)!");
 }).catch(err => {
