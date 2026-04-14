@@ -42,19 +42,31 @@ setInterval(async () => {
 
 async function getAIResponse(prompt) {
     try {
-        // Мы жестко прописываем v1, чтобы не было 404
         const url = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${googleApiKey}`;
         
-        console.log("Отправляю прямой запрос к Gemini...");
+        // ВАЖНО: Прямой API требует именно такую структуру contents
+        const payload = {
+            contents: [{
+                parts: [{ text: prompt }]
+            }]
+        };
 
-        const response = await axios.post(url, {
-            contents: [{ parts: [{ text: prompt }] }]
-        });
+        console.log("--- Отправка запроса в Gemini ---");
+        const response = await axios.post(url, payload);
 
-        return response.data.candidates[0].content.parts[0].text;
+        if (response.data.candidates && response.data.candidates[0].content) {
+            return response.data.candidates[0].content.parts[0].text;
+        } else {
+            return "🤖 ИИ прислал пустой ответ.";
+        }
     } catch (error) {
-        console.error("Gemini Direct Error:", error.response?.data || error.message);
-        return "🤖 Ошибка связи. Посмотри логи Render.";
+        // ЭТОТ БЛОК ПОКАЖЕТ РЕАЛЬНУЮ ПРИЧИНУ В ЛОГАХ
+        if (error.response) {
+            console.error("❌ Ошибка Gemini API:", JSON.stringify(error.response.data, null, 2));
+        } else {
+            console.error("❌ Ошибка Сети/Axios:", error.message);
+        }
+        return "🤖 Ошибка связи с Gemini. Посмотри логи в Render.";
     }
 }
 
