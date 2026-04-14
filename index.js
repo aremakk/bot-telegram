@@ -6,8 +6,19 @@ const { gameOption, againOption, aiOption } = require('./options.js');
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const http = require('http');
 
-// --- СЕРВЕР ДЛЯ RENDER ---
-http.createServer((req, res) => res.end('Bot is running')).listen(process.env.PORT || 3000);
+
+http.createServer((req, res) => res.end('Bot is running')).listen(PORT);
+
+// --- ФУНКЦИЯ КРОНА (САМОПИНГ) ---
+// Чтобы бот не засыпал на бесплатном тарифе Render
+setInterval(async () => {
+    try {
+        await axios.get(SERVER_URL);
+        console.log('Keep-alive ping sent successfully');
+    } catch (e) {
+        console.error('Keep-alive ping failed:', e.message);
+    }
+}, 600000); // 600,000 мс = 10 минут
 
 // --- КОНФИГУРАЦИЯ ---
 const token = process.env.TELEGRAM_TOKEN; 
@@ -23,7 +34,13 @@ const aiState = {};
 
 // Исправлено: название переменной и убрана опечатка в process
 const googleApiKey = process.env.GOOGLE_API_KEY;
-const genAI = new GoogleGenerativeAI(googleApiKey);
+
+// Проверка наличия ключа перед инициализацией
+if (!googleApiKey) {
+    console.error("КРИТИЧЕСКАЯ ОШИБКА: GOOGLE_API_KEY не установлен в переменных окружения!");
+}
+
+const genAI = new GoogleGenerativeAI(googleApiKey || "dummy_key");
 
 // Используем модель с явным указанием версии для обхода ошибок 404
 const model = genAI.getGenerativeModel({ 
@@ -38,7 +55,11 @@ async function getAIResponse(prompt) {
         return response.text();
     } catch (error) {
         console.error("Gemini Error:", error);
-        return "🤖 Ошибка связи с Gemini. Проверь VPN или API ключ.";
+        // Если ошибка 403, значит ключ не подошел или регион заблокирован
+        if (error.message.includes('403')) {
+            return "🤖 Ошибка 403: Google блокирует запрос. На Render это странно, проверь API ключ.";
+        }
+        return "🤖 Ошибка связи с Gemini. Проверь логи в Render или API ключ.";
     }
 }
 
