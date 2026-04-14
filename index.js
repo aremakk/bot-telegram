@@ -6,30 +6,28 @@ const { gameOption, againOption, aiOption } = require('./options.js');
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const http = require('http');
 
-// --- 1. ОБЪЯВЛЕНИЕ ПЕРЕМЕННЫХ (Сначала объявляем, потом используем) ---
+// --- 1. ПЕРЕМЕННЫЕ ОКРУЖЕНИЯ (СНАЧАЛА ОБЪЯВЛЯЕМ!) ---
 const PORT = process.env.PORT || 3000;
 const SERVER_URL = `https://assistbot-m7w5.onrender.com`; 
-
-// --- 2. КОНФИГУРАЦИЯ ---
 const token = process.env.TELEGRAM_TOKEN; 
 const groqKey = process.env.GROQ_API_KEY;
 const WHITE_LIST = [1204470331]; 
 
-// --- 3. ИНИЦИАЛИЗАЦИЯ ---
-const bot = new TelegramApi(token, { polling: true });
-const groq = new Groq({ apiKey: groqKey });
-
-const chats = {};   
-const aiState = {};
-
-// --- СЕРВЕР ДЛЯ RENDER ---
+// --- 2. ИНИЦИАЛИЗАЦИЯ СЕРВЕРА (ЧТОБЫ RENDER НЕ ВЫДАВАЛ ОШИБКУ ПОРТА) ---
 http.createServer((req, res) => {
     res.end('Bot is running');
 }).listen(PORT, () => {
     console.log(`Server is listening on port ${PORT}`);
 });
 
-// --- ФУНКЦИЯ КРОНА (САМОПИНГ) ---
+// --- 3. ИНИЦИАЛИЗАЦИЯ БОТА И ИИ ---
+const bot = new TelegramApi(token, { polling: true });
+const groq = new Groq({ apiKey: groqKey });
+
+const chats = {};   
+const aiState = {};
+
+// --- 4. ФУНКЦИЯ САМОПИНГА (ЧТОБЫ НЕ СПАЛ) ---
 setInterval(async () => {
     try {
         await axios.get(SERVER_URL);
@@ -37,10 +35,12 @@ setInterval(async () => {
     } catch (e) {
         console.error('Keep-alive ping failed:', e.message);
     }
-}, 600000); // 10 минут
+}, 600000); 
 
-// --- ФУНКЦИЯ ИИ (GROQ) ---
+// --- 5. ФУНКЦИЯ ИИ (ЧЕРЕЗ GROQ) ---
 async function getAIResponse(prompt) {
+    if (!groqKey) return "🤖 Ошибка: GROQ_API_KEY не найден в настройках Render!";
+    
     try {
         const completion = await groq.chat.completions.create({
             messages: [
@@ -60,26 +60,19 @@ async function getAIResponse(prompt) {
         return completion.choices[0]?.message?.content || "🤖 Не удалось сформировать ответ.";
     } catch (error) {
         console.error("Groq Error:", error);
-        if (error.status === 429) {
-            return "⚠️ Слишком много запросов! Подожди немного.";
-        }
-        return "🤖 Ошибка связи с ИИ. Проверь API ключ Groq в настройках Render.";
+        if (error.status === 429) return "⚠️ Слишком много запросов! Подожди немного.";
+        return "🤖 Ошибка связи с Groq. Проверь API ключ в Render.";
     }
 }
 
-/* Здесь были настройки Gemini (закомментированы по твоему желанию)
-const googleApiKey = process.env.GOOGLE_API_KEY;
-...
-*/
-
-// --- ЛОГИКА ИГРЫ ---
+// --- 6. ЛОГИКА ИГРЫ ---
 const startGame = async (chatId) => {
     const randomNumber = Math.floor(Math.random() * 10);
     chats[chatId] = randomNumber;
     await bot.sendMessage(chatId, `Я загадал число от 0 до 9. Попробуй угадать!`, gameOption);
 };
 
-// --- ОСНОВНОЙ СТАРТ ---
+// --- 7. ОБРАБОТКА КОМАНД ---
 const start = () => {
     bot.setMyCommands([
         { command: '/start', description: 'Запустить бота' },
@@ -98,16 +91,12 @@ const start = () => {
         if (!text) return;
 
         if (!WHITE_LIST.includes(userId)) {
-            return bot.sendMessage(chatId, "⚠️ Извини, это приватный бот. Доступ только для владельца.");
+            return bot.sendMessage(chatId, "⚠️ Извини, это приватный бот.");
         }
 
-        if (text === '/start') {
-            return bot.sendMessage(chatId, `Доступ подтвержден. Привет, Босс!`);
-        }
-
-        if (text === '/info') {
-            return bot.sendMessage(chatId, `👤 Профиль: ${msg.from.first_name}\n🆔 ID: ${userId}`);
-        }
+        if (text === '/start') return bot.sendMessage(chatId, `Доступ подтвержден. Привет, Босс!`);
+        
+        if (text === '/info') return bot.sendMessage(chatId, `👤 Профиль: ${msg.from.first_name}\n🆔 ID: ${userId}`);
 
         if (text === '/rates') {
             try {
@@ -124,10 +113,7 @@ const start = () => {
             const args = text.split(' ');
             const mins = parseInt(args[1]);
             const task = args.slice(2).join(' ');
-
-            if (isNaN(mins) || !task) {
-                return bot.sendMessage(chatId, "Используй: `/remind 10 Текст`", { parse_mode: 'Markdown' });
-            }
+            if (isNaN(mins) || !task) return bot.sendMessage(chatId, "Используй: `/remind 10 Текст`", { parse_mode: 'Markdown' });
 
             bot.sendMessage(chatId, `✅ Напомню через ${mins} мин.`);
             const date = new Date(Date.now() + mins * 60000);
@@ -141,51 +127,36 @@ const start = () => {
 
         if (text === '/ai') {
             aiState[chatId] = true;
-            return bot.sendMessage(chatId, "🤖 Режим ИИ (Groq) включен. Напиши 'Пока', чтобы выключить его.");
+            return bot.sendMessage(chatId, "🤖 Режим ИИ (Groq) включен.");
         }
 
         if (aiState[chatId] && !text.startsWith('/')) {
             const stopWords = ['пока', 'стоп', 'stop', 'выход'];
             if (stopWords.includes(text.toLowerCase().trim())) {
                 aiState[chatId] = false; 
-                return bot.sendMessage(chatId, "🤖 Режим ИИ выключен. Был рад помочь!");
+                return bot.sendMessage(chatId, "🤖 Режим ИИ выключен.");
             }
-
             await bot.sendChatAction(chatId, 'typing');
             const aiAnswer = await getAIResponse(text);
             return bot.sendMessage(chatId, aiAnswer, aiOption);
         }
 
-        if (!text.startsWith('/')) {
-            return bot.sendMessage(chatId, "Команда не распознана.");
-        }
+        if (!text.startsWith('/')) return bot.sendMessage(chatId, "Команда не распознана.");
     });
 
     bot.on('callback_query', async msg => {
         const data = msg.data;
         const chatId = msg.message.chat.id;
-        const userId = msg.from.id;
-
-        if (!WHITE_LIST.includes(userId)) return;
-
         if (data === '/stop_ai') {
             aiState[chatId] = false;
-            await bot.answerCallbackQuery(msg.id);
             return bot.sendMessage(chatId, "🤖 ИИ выключен.");
         }
-
-        if (data === '/again') {
-            await bot.answerCallbackQuery(msg.id);
-            return startGame(chatId);
-        }
+        if (data === '/again') return startGame(chatId);
 
         const userGuess = Number(data);
         if (!isNaN(userGuess) && data.length === 1) {
-            if (userGuess === chats[chatId]) {
-                await bot.sendMessage(chatId, `🎉 Верно!`, againOption);
-            } else {
-                await bot.sendMessage(chatId, `❌ Нет, это было число ${chats[chatId]}`, againOption);
-            }
+            const resultMsg = userGuess === chats[chatId] ? `🎉 Верно!` : `❌ Нет, это было число ${chats[chatId]}`;
+            await bot.sendMessage(chatId, resultMsg, againOption);
             await bot.answerCallbackQuery(msg.id);
         }
     });
