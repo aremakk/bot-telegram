@@ -10,7 +10,7 @@ const http = require('http');
 http.createServer((req, res) => res.end('Bot is running')).listen(process.env.PORT || 3000);
 
 // --- КОНФИГУРАЦИЯ ---
-const token = process.env.TELEGRAM_BOT_TOKEN; 
+const token = process.env.TELEGRAM_TOKEN; 
 // const groqKey = process.env.GROQ_API_KEY;
 const WHITE_LIST = [1204470331]; 
 
