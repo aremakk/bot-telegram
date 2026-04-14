@@ -42,8 +42,7 @@ setInterval(async () => {
 
 async function getAIResponse(prompt) {
     try {
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${googleApiKey}`;
-
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${googleApiKey}`;
         const response = await axios.post(url, {
             contents: [{ parts: [{ text: prompt }] }]
         });
