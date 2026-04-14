@@ -1,20 +1,35 @@
 const TelegramApi = require('node-telegram-bot-api');
 const axios = require('axios');
 const schedule = require('node-schedule');
-const Groq = require("groq-sdk"); // Поменяли библиотеку
+const Groq = require("groq-sdk"); 
 const { gameOption, againOption, aiOption } = require('./options.js');
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const http = require('http');
 
-
-// --- ОБЪЯВЛЕНИЕ ПЕРЕМЕННЫХ ДЛЯ СЕРВЕРА ---
+// --- 1. ОБЪЯВЛЕНИЕ ПЕРЕМЕННЫХ (Сначала объявляем, потом используем) ---
 const PORT = process.env.PORT || 3000;
-const SERVER_URL = `https://assistbot-m7w5.onrender.com`; // Твой URL от Render
+const SERVER_URL = `https://assistbot-m7w5.onrender.com`; 
 
-http.createServer((req, res) => res.end('Bot is running')).listen(PORT);
+// --- 2. КОНФИГУРАЦИЯ ---
+const token = process.env.TELEGRAM_TOKEN; 
+const groqKey = process.env.GROQ_API_KEY;
+const WHITE_LIST = [1204470331]; 
+
+// --- 3. ИНИЦИАЛИЗАЦИЯ ---
+const bot = new TelegramApi(token, { polling: true });
+const groq = new Groq({ apiKey: groqKey });
+
+const chats = {};   
+const aiState = {};
+
+// --- СЕРВЕР ДЛЯ RENDER ---
+http.createServer((req, res) => {
+    res.end('Bot is running');
+}).listen(PORT, () => {
+    console.log(`Server is listening on port ${PORT}`);
+});
 
 // --- ФУНКЦИЯ КРОНА (САМОПИНГ) ---
-// Чтобы бот не засыпал на бесплатном тарифе Render
 setInterval(async () => {
     try {
         await axios.get(SERVER_URL);
@@ -22,50 +37,7 @@ setInterval(async () => {
     } catch (e) {
         console.error('Keep-alive ping failed:', e.message);
     }
-}, 600000); // 600,000 мс = 10 минут
-
-// --- КОНФИГУРАЦИЯ ---
-const token = process.env.TELEGRAM_TOKEN; 
-const groqKey = process.env.GROQ_API_KEY;
-const WHITE_LIST = [1204470331]; 
-
-// --- ИНИЦИАЛИЗАЦИЯ ---
-const bot = new TelegramApi(token, { polling: true });
-const groq = new Groq({ apiKey: groqKey });
-
-const chats = {};   // Хранилище для игры
-const aiState = {};
-
-// Исправлено: название переменной и убрана опечатка в process
-// const googleApiKey = process.env.GOOGLE_API_KEY;
-
-// Проверка наличия ключа перед инициализацией
-// if (!googleApiKey) {
-//     console.error("КРИТИЧЕСКАЯ ОШИБКА: GOOGLE_API_KEY не установлен в переменных окружения!");
-// }
-
-// const genAI = new GoogleGenerativeAI(googleApiKey || "dummy_key");
-
-// Используем модель с явным указанием версии для обхода ошибок 404
-// const model = genAI.getGenerativeModel({ 
-//     model: "gemini-1.5-flash" 
-// }, { apiVersion: 'v1' });
-
-// async function getAIResponse(prompt) {
-//     try {
-//         // Мы можем добавить системную инструкцию прямо в запрос
-//         const result = await model.generateContent(prompt);
-//         const response = await result.response;
-//         return response.text();
-//     } catch (error) {
-//         console.error("Gemini Error:", error);
-//         // Если ошибка 403, значит ключ не подошел или регион заблокирован
-//         if (error.message.includes('403')) {
-//             return "🤖 Ошибка 403: Google блокирует запрос. На Render это странно, проверь API ключ.";
-//         }
-//         return "🤖 Ошибка связи с Gemini. Проверь логи в Render или API ключ.";
-//     }
-// }
+}, 600000); // 10 минут
 
 // --- ФУНКЦИЯ ИИ (GROQ) ---
 async function getAIResponse(prompt) {
@@ -81,7 +53,7 @@ async function getAIResponse(prompt) {
                     content: prompt,
                 },
             ],
-            model: "llama-3.3-70b-versatile", // Самая быстрая и бесплатная модель
+            model: "llama-3.3-70b-versatile", 
             temperature: 0.7,
         });
 
@@ -91,19 +63,24 @@ async function getAIResponse(prompt) {
         if (error.status === 429) {
             return "⚠️ Слишком много запросов! Подожди немного.";
         }
-        return "🤖 Ошибка связи с ИИ. Проверь API ключ.";
+        return "🤖 Ошибка связи с ИИ. Проверь API ключ Groq в настройках Render.";
     }
 }
 
-// Дальше оставляй свой код start() и обработку сообщений без изменений!
+/* Здесь были настройки Gemini (закомментированы по твоему желанию)
+const googleApiKey = process.env.GOOGLE_API_KEY;
+...
+*/
+
+// --- ЛОГИКА ИГРЫ ---
 const startGame = async (chatId) => {
     const randomNumber = Math.floor(Math.random() * 10);
     chats[chatId] = randomNumber;
     await bot.sendMessage(chatId, `Я загадал число от 0 до 9. Попробуй угадать!`, gameOption);
 };
 
+// --- ОСНОВНОЙ СТАРТ ---
 const start = () => {
-    // Устанавливаем команды
     bot.setMyCommands([
         { command: '/start', description: 'Запустить бота' },
         { command: '/info', description: 'Информация о себе' },
@@ -120,12 +97,10 @@ const start = () => {
 
         if (!text) return;
 
-        // --- ПРОВЕРКА ДОСТУПА ---
         if (!WHITE_LIST.includes(userId)) {
             return bot.sendMessage(chatId, "⚠️ Извини, это приватный бот. Доступ только для владельца.");
         }
 
-        // 1. Команды
         if (text === '/start') {
             return bot.sendMessage(chatId, `Доступ подтвержден. Привет, Босс!`);
         }
@@ -134,7 +109,6 @@ const start = () => {
             return bot.sendMessage(chatId, `👤 Профиль: ${msg.from.first_name}\n🆔 ID: ${userId}`);
         }
 
-        // 2. Курс валют
         if (text === '/rates') {
             try {
                 const res = await axios.get('https://api.exchangerate-api.com/v4/latest/USD');
@@ -146,7 +120,6 @@ const start = () => {
             }
         }
 
-        // 3. Напоминания
         if (text.startsWith('/remind')) {
             const args = text.split(' ');
             const mins = parseInt(args[1]);
@@ -164,26 +137,20 @@ const start = () => {
             return;
         }
 
-        // 4. Игра
         if (text === '/game') return startGame(chatId);
 
-        // 5. Режим ИИ
         if (text === '/ai') {
             aiState[chatId] = true;
-            return bot.sendMessage(chatId, "🤖 Режим ИИ включен. Напиши 'Пока', чтобы выключить его.");
+            return bot.sendMessage(chatId, "🤖 Режим ИИ (Groq) включен. Напиши 'Пока', чтобы выключить его.");
         }
 
-        // Логика работы ИИ
         if (aiState[chatId] && !text.startsWith('/')) {
-            
-            // ПРОВЕРКА НА СТОП-СЛОВО
             const stopWords = ['пока', 'стоп', 'stop', 'выход'];
             if (stopWords.includes(text.toLowerCase().trim())) {
-                aiState[chatId] = false; // Выключаем режим
+                aiState[chatId] = false; 
                 return bot.sendMessage(chatId, "🤖 Режим ИИ выключен. Был рад помочь!");
             }
 
-            // Если не стоп-слово, отправляем в ИИ
             await bot.sendChatAction(chatId, 'typing');
             const aiAnswer = await getAIResponse(text);
             return bot.sendMessage(chatId, aiAnswer, aiOption);
@@ -194,14 +161,12 @@ const start = () => {
         }
     });
 
-    // Обработка кнопок
     bot.on('callback_query', async msg => {
         const data = msg.data;
         const chatId = msg.message.chat.id;
         const userId = msg.from.id;
 
-        // Также проверяем доступ для кнопок
-        if (!WHITE_LIST.includes(userId)) return bot.answerCallbackQuery(msg.id, {text: "Нет доступа"});
+        if (!WHITE_LIST.includes(userId)) return;
 
         if (data === '/stop_ai') {
             aiState[chatId] = false;
@@ -227,4 +192,4 @@ const start = () => {
 };
 
 start();
-console.log("🚀 Бот запущен в приватном режиме!");
+console.log("🚀 Бот запущен в приватном режиме (Groq)!");
