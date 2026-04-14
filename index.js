@@ -6,14 +6,14 @@ const { gameOption, againOption, aiOption } = require('./options.js');
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const http = require('http');
 
-// --- 1. ПЕРЕМЕННЫЕ ОКРУЖЕНИЯ (СНАЧАЛА ОБЪЯВЛЯЕМ!) ---
+// --- 1. ПЕРЕМЕННЫЕ ОКРУЖЕНИЯ ---
 const PORT = process.env.PORT || 3000;
 const SERVER_URL = `https://assistbot-m7w5.onrender.com`; 
 const token = process.env.TELEGRAM_TOKEN; 
 const groqKey = process.env.GROQ_API_KEY;
 const WHITE_LIST = [1204470331]; 
 
-// --- 2. ИНИЦИАЛИЗАЦИЯ СЕРВЕРА (ЧТОБЫ RENDER НЕ ВЫДАВАЛ ОШИБКУ ПОРТА) ---
+// --- 2. ИНИЦИАЛИЗАЦИЯ СЕРВЕРА ---
 http.createServer((req, res) => {
     res.end('Bot is running');
 }).listen(PORT, () => {
@@ -27,7 +27,7 @@ const groq = new Groq({ apiKey: groqKey });
 const chats = {};   
 const aiState = {};
 
-// --- 4. ФУНКЦИЯ САМОПИНГА (ЧТОБЫ НЕ СПАЛ) ---
+// --- 4. ФУНКЦИЯ САМОПИНГА ---
 setInterval(async () => {
     try {
         await axios.get(SERVER_URL);
@@ -127,18 +127,18 @@ const start = () => {
 
         if (text === '/ai') {
             aiState[chatId] = true;
-            return bot.sendMessage(chatId, "🤖 Режим ИИ (Groq) включен.");
+            return bot.sendMessage(chatId, "🤖 Режим ИИ (Groq) включен. Напиши 'Пока', чтобы выключить.");
         }
 
         if (aiState[chatId] && !text.startsWith('/')) {
             const stopWords = ['пока', 'стоп', 'stop', 'выход'];
             if (stopWords.includes(text.toLowerCase().trim())) {
                 aiState[chatId] = false; 
-                return bot.sendMessage(chatId, "🤖 Режим ИИ выключен.");
+                return bot.sendMessage(chatId, "🤖 Режим ИИ выключен. Был рад помочь!");
             }
             await bot.sendChatAction(chatId, 'typing');
             const aiAnswer = await getAIResponse(text);
-            return bot.sendMessage(chatId, aiAnswer, aiOption);
+            return bot.sendMessage(chatId, aiAnswer); // Убрали aiOption, чтобы не выводить кнопку
         }
 
         if (!text.startsWith('/')) return bot.sendMessage(chatId, "Команда не распознана.");
@@ -147,10 +147,6 @@ const start = () => {
     bot.on('callback_query', async msg => {
         const data = msg.data;
         const chatId = msg.message.chat.id;
-        if (data === '/stop_ai') {
-            aiState[chatId] = false;
-            return bot.sendMessage(chatId, "🤖 ИИ выключен.");
-        }
         if (data === '/again') return startGame(chatId);
 
         const userGuess = Number(data);
