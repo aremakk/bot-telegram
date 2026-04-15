@@ -50,10 +50,14 @@ async function getAIResponse(prompt) {
         return response.data.candidates?.[0]?.content?.parts?.[0]?.text || "Пустой ответ";
 
     } catch (error) {
+        if (error.response?.status === 503 && retryCount < 3) {
+            console.log(`⏳ Сервер перегружен. Попытка #${retryCount + 1}...`);
+            await new Promise(res => setTimeout(res, 3000)); // Ждем 3 секунды
+            return getAIResponse(prompt, retryCount + 1); // Рекурсивный повтор
+        }
+
         if (error.response?.status === 429) {
-            console.log("⏳ Лимит достигнут, жду...");
-            await new Promise(res => setTimeout(res, 30000));
-            return "🤖 Слишком много запросов, попробуй позже.";
+            return "⚠️ Слишком много запросов. Подожди минуту.";
         }
 
         console.error(error.response?.data || error.message);
