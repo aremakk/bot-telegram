@@ -82,7 +82,6 @@ const start = () => {
     bot.setMyCommands([
         { command: '/start', description: 'Запустить бота' },
         { command: '/info', description: 'Информация' },
-        { command: '/ai', description: 'Режим ИИ' },
         { command: '/rates', description: 'Курс валют' },
         { command: '/remind', description: 'Напоминание' },
         { command: '/game', description: 'Сыграть в игру' }
@@ -99,10 +98,12 @@ const start = () => {
         console.log(`📩 [${msg.from.first_name}] ID: ${userId} -> ${text}`);
 
         // Активация ИИ через Привет или /start
-        if (lowerText === 'привет' || text === '/start') {
+        if (lowerText === 'привет') {
             aiState[chatId] = true;
             return bot.sendMessage(chatId, `Привет, Босс! Режим Gemini активирован. Спрашивай что угодно.`);
         }
+
+        if (text === '/start') return bot.sendMessage(chatId, `Добро пожаловать в AssistBot ${msg.from.first_name}!`);
 
         // Выход из режима ИИ
         if (aiState[chatId] && ['пока', 'стоп', 'stop', 'выход'].includes(lowerText)) {
