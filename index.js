@@ -10,7 +10,7 @@ const PORT = process.env.PORT || 3000;
 const SERVER_URL = `https://assistbot-m7w5.onrender.com`; 
 const token = process.env.TELEGRAM_TOKEN; 
 const googleApiKey = process.env.GOOGLE_API_KEY; // Убедись, что в Render имя такое же!
-const WHITE_LIST = [1204470331]; 
+const WHITE_LIST = [1204470331, 952165447]; 
 
 // --- 2. QA КОНТРОЛЬ: ПРОВЕРКА КЛЮЧА ПРИ ЗАПУСКЕ ---
 console.log("--- СТАТУС ЗАПУСКА ---");
@@ -40,7 +40,7 @@ setInterval(async () => {
 // В начале файла убедись, что axios подключен
 // const axios = require('axios');
 
-async function getAIResponse(prompt) {
+async function getAIResponse(prompt, retryCount = 0) {
     try {
         const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${googleApiKey}`;
         const response = await axios.post(url, {
@@ -93,7 +93,7 @@ const start = () => {
         const chatId = msg.chat.id;
         const userId = msg.from.id;
 
-        // if (!text || !WHITE_LIST.includes(userId)) return;
+        if (!text || !WHITE_LIST.includes(userId)) return;
 
         if (text === '/start') return bot.sendMessage(chatId, `Привет, Босс! Мы на Gemini.`);
         
