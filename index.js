@@ -96,17 +96,21 @@ const start = () => {
         if (!text || !WHITE_LIST.includes(userId)) return;
 
         const lowerText = text.toLowerCase().trim();
+        console.log(`📩 [${msg.from.first_name}] ID: ${userId} -> ${text}`);
+
+        // Активация ИИ через Привет или /start
         if (lowerText === 'привет' || text === '/start') {
-            aiState[chatId] = true; // Включаем режим ИИ
+            aiState[chatId] = true;
             return bot.sendMessage(chatId, `Привет, Босс! Режим Gemini активирован. Спрашивай что угодно.`);
         }
 
-        // 2. Логика выхода из режима ИИ
+        // Выход из режима ИИ
         if (aiState[chatId] && ['пока', 'стоп', 'stop', 'выход'].includes(lowerText)) {
             aiState[chatId] = false;
             return bot.sendMessage(chatId, "🤖 Режим ИИ выключен.");
         }
         
+        // Системные команды
         if (text === '/info') return bot.sendMessage(chatId, `Профиль: ${msg.from.first_name}\nID: ${userId}`);
 
         if (text === '/rates') {
@@ -123,8 +127,7 @@ const start = () => {
             if (isNaN(mins) || !task) return bot.sendMessage(chatId, "Используй: `/remind 10 Текст`", { parse_mode: 'Markdown' });
 
             bot.sendMessage(chatId, `✅ Ок, напомню через ${mins} мин.`);
-            const date = new Date(Date.now() + mins * 60000);
-            schedule.scheduleJob(date, () => {
+            schedule.scheduleJob(new Date(Date.now() + mins * 60000), () => {
                 bot.sendMessage(chatId, `🔔 **НАПОМИНАНИЕ:**\n\n> ${task}`, { parse_mode: 'Markdown' });
             });
             return;
@@ -132,17 +135,17 @@ const start = () => {
 
         if (text === '/game') return startGame(chatId);
         
-        if (aiState[chatId]) {
+        // Если режим ИИ включен — отправляем запрос
+        if (aiState[chatId] && !text.startsWith('/')) {
             await bot.sendChatAction(chatId, 'typing');
             const aiAnswer = await getAIResponse(text);
             return bot.sendMessage(chatId, aiAnswer);
         }
     
-        // Если ничего не подошло
-        if (!text.startsWith('/')) return bot.sendMessage(chatId, "Напиши 'Привет', чтобы начать общение с ИИ.");
-
-
-        if (!text.startsWith('/')) return bot.sendMessage(chatId, "Команда не распознана.");
+        // Если режима ИИ нет и команда не распознана
+        if (!text.startsWith('/')) {
+            return bot.sendMessage(chatId, "Команда не распознана");
+        }
     });
 
     bot.on('callback_query', async msg => {
