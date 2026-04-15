@@ -87,9 +87,9 @@ const start = () => {
     bot.on('message', async msg => {
         const text = msg.text;
         const chatId = msg.chat.id;
-        const userId = msg.from.id;
+        // const userId = msg.from.id;
 
-        if (!text || !WHITE_LIST.includes(userId)) return;
+        // if (!text || !WHITE_LIST.includes(userId)) return;
 
         if (text === '/start') return bot.sendMessage(chatId, `Привет, Босс! Мы на Gemini.`);
         
