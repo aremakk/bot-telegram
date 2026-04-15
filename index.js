@@ -95,7 +95,17 @@ const start = () => {
 
         if (!text || !WHITE_LIST.includes(userId)) return;
 
-        if (text === '/start') return bot.sendMessage(chatId, `Привет, Босс! Мы на Gemini.`);
+        const lowerText = text.toLowerCase().trim();
+        if (lowerText === 'привет' || text === '/start') {
+            aiState[chatId] = true; // Включаем режим ИИ
+            return bot.sendMessage(chatId, `Привет, Босс! Режим Gemini активирован. Спрашивай что угодно.`);
+        }
+
+        // 2. Логика выхода из режима ИИ
+        if (aiState[chatId] && ['пока', 'стоп', 'stop', 'выход'].includes(lowerText)) {
+            aiState[chatId] = false;
+            return bot.sendMessage(chatId, "🤖 Режим ИИ выключен.");
+        }
         
         if (text === '/info') return bot.sendMessage(chatId, `Профиль: ${msg.from.first_name}\nID: ${userId}`);
 
@@ -121,21 +131,16 @@ const start = () => {
         }
 
         if (text === '/game') return startGame(chatId);
-
-        if (text === '/ai') {
-            aiState[chatId] = true;
-            return bot.sendMessage(chatId, "🤖 Режим Gemini включен. Чтобы выйти, напиши 'Пока'.");
-        }
-
-        if (aiState[chatId] && !text.startsWith('/')) {
-            if (['пока', 'стоп', 'stop', 'выход'].includes(text.toLowerCase().trim())) {
-                aiState[chatId] = false;
-                return bot.sendMessage(chatId, "🤖 Режим ИИ выключен.");
-            }
+        
+        if (aiState[chatId]) {
             await bot.sendChatAction(chatId, 'typing');
             const aiAnswer = await getAIResponse(text);
             return bot.sendMessage(chatId, aiAnswer);
         }
+    
+        // Если ничего не подошло
+        if (!text.startsWith('/')) return bot.sendMessage(chatId, "Напиши 'Привет', чтобы начать общение с ИИ.");
+
 
         if (!text.startsWith('/')) return bot.sendMessage(chatId, "Команда не распознана.");
     });
