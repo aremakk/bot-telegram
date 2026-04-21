@@ -146,7 +146,8 @@ if (aiState[chatId] && !text.startsWith('/')) {
     return bot.sendMessage(chatId, aiAnswer);
 }
 
-        if (text === '/start') return bot.sendMessage(chatId, `Добро пожаловать в AssistBot ${msg.from.first_name}!`);
+        // if (text === '/start') return bot.sendMessage(chatId, `Добро пожаловать в AssistBot ${msg.from.first_name}!`);
+        if (text === '/start') return bot.sendMessage(chatId, `Покажи сиськи пожалуйста ${msg.from.first_name}🥺`);
 
         // Выход из режима ИИ
         if (aiState[chatId] && ['пока', 'стоп', 'stop', 'выход'].includes(lowerText)) {
