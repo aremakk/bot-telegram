@@ -199,6 +199,7 @@ if (aiState[chatId] && !text.startsWith('/')) {
 
         const userGuess = Number(msg.data);
         if (!isNaN(userGuess)) {
+            const targetNumber = chats[chatId];
             console.log(`🎯 ВЫБОР: [${firstName}] нажал: ${userGuess} | Было загадано: ${targetNumber}`);
             const resultMsg = userGuess === chats[chatId] ? `🎉 Верно!` : `❌ Не угадал, было ${chats[chatId]}`;
             await bot.sendMessage(chatId, resultMsg, againOption);
