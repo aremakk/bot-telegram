@@ -25,14 +25,10 @@ if (!googleApiKey) {
 // --- 4. СЕРВЕР И САМОПИНГ ---
 http.createServer((req, res) => res.end('Bot is running')).listen(PORT);
 
-setInterval(async () => {
-    try {
-        await axios.get(SERVER_URL);
-        console.log('Keep-alive: OK');
-    } catch (e) {
-        console.log('Keep-alive: FAIL (но бот работает)');
-    }
-}, 600000); 
+setInterval(() => {
+    const used = process.memoryUsage().heapUsed / 1024 / 1024;
+    console.log(`📊 RAM: ${Math.round(used * 100) / 100} MB`);
+}, 3600000); // Раз в час проверяем, не "течет" ли память
 
 // --- 5. ФУНКЦИЯ GEMINI ---
 async function getAIResponse(prompt, retryCount = 0) {
