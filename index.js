@@ -98,7 +98,7 @@ const start = () => {
         const chatId = msg.chat.id;
         const userId = msg.from.id;
 
-        if (!text || !WHITE_LIST.includes(userId)) return;
+        if (!text || !WHITE_LIST.includes(userId)) return bot.sendMessage(chatId, "У тебя нет доступа к этому боту.");
 
         const lowerText = text.toLowerCase().trim();
         console.log(`📩 [${msg.from.first_name}] ID: ${userId} -> ${text}`);
