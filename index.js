@@ -5,6 +5,7 @@ const schedule = require('node-schedule');
 const { gameOption, againOption } = require('./options.js');
 // const { GoogleGenerativeAI } = require("@google/generative-ai");
 const http = require('http');
+const { encode } = require('punycode');
 
 // --- 1. ПЕРЕМЕННЫЕ ОКРУЖЕНИЯ ---
 const PORT = process.env.PORT || 3000;
@@ -21,10 +22,6 @@ if (!googleApiKey) {
     console.log(`✅ Ключ Gemini подгружен. Длина: ${googleApiKey.length} символов.`);
 }
 
-// --- 3. ИНИЦИАЛИЗАЦИЯ GEMINI ---
-// const genAI = new GoogleGenerativeAI(googleApiKey || "dummy_key");
-// const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" }, { apiVersion: 'v1' });
-
 // --- 4. СЕРВЕР И САМОПИНГ ---
 http.createServer((req, res) => res.end('Bot is running')).listen(PORT);
 
@@ -35,12 +32,9 @@ setInterval(async () => {
     } catch (e) {
         console.log('Keep-alive: FAIL (но бот работает)');
     }
-}, 600000); // 10 минут
+}, 600000); 
 
 // --- 5. ФУНКЦИЯ GEMINI ---
-// В начале файла убедись, что axios подключен
-// const axios = require('axios');
-
 async function getAIResponse(prompt, retryCount = 0) {
     try {
         const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${googleApiKey}`;
@@ -63,6 +57,17 @@ async function getAIResponse(prompt, retryCount = 0) {
 
         console.error(error.response?.data || error.message);
         return "🤖 Ошибка AI.";
+    }
+}
+
+async function generateImage(prompt){
+    try{
+        const query = encodeURIComponent(prompt);
+        const imageUrl = `https://pollinations.ai/p/${query}?width=1024&height=1024&seed=${Math.floor(Math.random() * 1e6)}&model=flux`;
+        return imageUrl;
+    }catch(e){
+        console.error("Ошибка генерации изображения:", e);
+        return null;
     }
 }
 
@@ -102,6 +107,28 @@ const start = () => {
         if (lowerText === 'привет') {
             aiState[chatId] = true;
             return bot.sendMessage(chatId, `Привет, Босс! Режим Gemini активирован. Спрашивай что угодно.`);
+        }
+
+        if (aiState[chatId] && !text.startsWith('/')) {
+            const triggerWords = ['нарисуй', 'сгенерируй', 'draw', 'generate', 'картинка'];
+            const isImageRequest = triggerWords.some(word => lowerText.includes(word));
+        
+            if (isImageRequest) {
+                await bot.sendChatAction(chatId, 'upload_photo');
+                const imageUrl = await generateImage(text);
+                if (imageUrl) {
+                    return bot.sendPhoto(chatId, imageUrl, { 
+                        caption: `🎨 Вот твой результат по запросу: "${text}"`,
+                        reply_to_message_id: msg.message_id 
+                    });
+                } else {
+                    return bot.sendMessage(chatId, "❌ Не удалось создать картинку.");
+                }
+            } else {
+                await bot.sendChatAction(chatId, 'typing');
+                const aiAnswer = await getAIResponse(text);
+                return bot.sendMessage(chatId, aiAnswer);
+            }
         }
 
         if (text === '/start') return bot.sendMessage(chatId, `Добро пожаловать в AssistBot ${msg.from.first_name}!`);
