@@ -194,6 +194,7 @@ if (aiState[chatId] && !text.startsWith('/')) {
 
     bot.on('callback_query', async msg => {
         const chatId = msg.message.chat.id;
+        const firstName = msg.from.first_name;
         if (msg.data === '/again') return startGame(chatId);
 
         const userGuess = Number(msg.data);
