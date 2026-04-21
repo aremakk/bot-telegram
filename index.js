@@ -109,27 +109,45 @@ const start = () => {
             return bot.sendMessage(chatId, `Привет, Босс! Режим Gemini активирован. Спрашивай что угодно.`);
         }
 
-        if (aiState[chatId] && !text.startsWith('/')) {
-            const triggerWords = ['нарисуй', 'сгенерируй', 'draw', 'generate', 'картинка'];
-            const isImageRequest = triggerWords.some(word => lowerText.includes(word));
+        // Находим место, где включен режим ИИ:
+if (aiState[chatId] && !text.startsWith('/')) {
+    
+    // ДОБАВЛЯЕМ ЛОГИКУ ПО КАРТИНКАМ:
+    
+    // Шаг 1: Проверяем, есть ли триггер-слова
+    const triggerWords = ['нарисуй', 'сгенерируй', 'draw', 'generate', 'картинка'];
+    const isImageRequest = triggerWords.some(word => lowerText.includes(word));
+
+    if (isImageRequest) {
+        // Убираем слово-триггер, оставляя только суть (например, "кота в космосе")
+        let promptBase = text.replace(/сгенерируй|нарисуй|draw|generate|картинка/gi, '').trim();
         
-            if (isImageRequest) {
-                await bot.sendChatAction(chatId, 'upload_photo');
-                const imageUrl = await generateImage(text);
-                if (imageUrl) {
-                    return bot.sendPhoto(chatId, imageUrl, { 
-                        caption: `🎨 Вот твой результат по запросу: "${text}"`,
-                        reply_to_message_id: msg.message_id 
-                    });
-                } else {
-                    return bot.sendMessage(chatId, "❌ Не удалось создать картинку.");
-                }
-            } else {
-                await bot.sendChatAction(chatId, 'typing');
-                const aiAnswer = await getAIResponse(text);
-                return bot.sendMessage(chatId, aiAnswer);
-            }
+        if (!promptBase) {
+            return bot.sendMessage(chatId, "⚠️ Укажи, что именно нарисовать (например: 'нарисуй кота')");
         }
+
+        await bot.sendChatAction(chatId, 'upload_photo');
+        const refinerPrompt = `Translate this user prompt to English and refine it to be a detailed, high-quality descriptive prompt for an AI image generator. Output only the refined English text. User prompt: "${promptBase}"`;
+        const detailedPrompt = await getAIResponse(refinerPrompt);
+        
+        console.log(`🎨 Рисуем (improved prompt): ${detailedPrompt}`);
+
+        // Шаг 3: Кодируем промт, чтобы пробелы не сломали ссылку
+        const query = encodeURIComponent(detailedPrompt);
+        const imageUrl = `https://pollinations.ai/p/${query}?width=1024&height=1024&seed=${Math.floor(Math.random() * 1e6)}&model=flux`;
+        
+        // Шаг 4: Отправляем!
+        return bot.sendPhoto(chatId, imageUrl, { 
+            caption: `🎨 Результат по запросу: "${promptBase}"\n\n*(Промт для ИИ: ${detailedPrompt})*`,
+            reply_to_message_id: msg.message_id 
+        });
+    }
+
+    // Если слова "сгенерируй" нет — идет обычный текст
+    await bot.sendChatAction(chatId, 'typing');
+    const aiAnswer = await getAIResponse(text);
+    return bot.sendMessage(chatId, aiAnswer);
+}
 
         if (text === '/start') return bot.sendMessage(chatId, `Добро пожаловать в AssistBot ${msg.from.first_name}!`);
 
@@ -183,6 +201,7 @@ const start = () => {
 
         const userGuess = Number(msg.data);
         if (!isNaN(userGuess)) {
+            console.log(`🎯 ВЫБОР: [${firstName}] нажал: ${userGuess} | Было загадано: ${targetNumber}`);
             const resultMsg = userGuess === chats[chatId] ? `🎉 Верно!` : `❌ Не угадал, было ${chats[chatId]}`;
             await bot.sendMessage(chatId, resultMsg, againOption);
             await bot.answerCallbackQuery(msg.id);
