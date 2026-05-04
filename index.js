@@ -33,7 +33,7 @@ setInterval(() => {
 // --- 5. ФУНКЦИЯ GEMINI ---
 async function getAIResponse(prompt, retryCount = 0) {
     try {
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${googleApiKey}`;
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${googleApiKey}`;
         const response = await axios.post(url, {
             contents: [{ parts: [{ text: prompt }] }]
         });
@@ -106,39 +106,34 @@ const start = () => {
             return bot.sendMessage(chatId, `Привет, Босс! Режим Gemini активирован. Спрашивай что угодно.`);
         }
 
-        // Находим место, где включен режим ИИ:
-if (aiState[chatId] && !text.startsWith('/')) {
-    
-    // ДОБАВЛЯЕМ ЛОГИКУ ПО КАРТИНКАМ:
-    
-    // Шаг 1: Проверяем, есть ли триггер-слова
-    const triggerWords = ['нарисуй', 'сгенерируй', 'draw', 'generate', 'картинка'];
-    const isImageRequest = triggerWords.some(word => lowerText.includes(word));
-
-    if (isImageRequest) {
-        // Убираем слово-триггер, оставляя только суть (например, "кота в космосе")
-        let promptBase = text.replace(/сгенерируй|нарисуй|draw|generate|картинка/gi, '').trim();
-        
-        if (!promptBase) {
-            return bot.sendMessage(chatId, "⚠️ Укажи, что именно нарисовать (например: 'нарисуй кота')");
+        if (aiState[chatId] && ['пока', 'стоп', 'stop', 'выход'].includes(lowerText)) {
+            aiState[chatId] = false;
+            return bot.sendMessage(chatId, "🤖 Режим ИИ выключен.");
         }
 
-        await bot.sendChatAction(chatId, 'upload_photo');
-        const refinerPrompt = `Translate this user prompt to English and refine it to be a detailed, high-quality descriptive prompt for an AI image generator. Output only the refined English text. User prompt: "${promptBase}"`;
-        const detailedPrompt = await getAIResponse(refinerPrompt);
-        
-        console.log(`🎨 Рисуем (improved prompt): ${detailedPrompt}`);
-
-        // Шаг 3: Кодируем промт, чтобы пробелы не сломали ссылку
-        const query = encodeURIComponent(detailedPrompt);
-        const imageUrl = `https://pollinations.ai/p/${query}?width=1024&height=1024&seed=${Math.floor(Math.random() * 1e6)}&model=flux`;
-        
-        // Шаг 4: Отправляем!
-        return bot.sendPhoto(chatId, imageUrl, { 
-            caption: `🎨 Результат по запросу: "${promptBase}"\n\n*(Промт для ИИ: ${detailedPrompt})*`,
-            reply_to_message_id: msg.message_id 
-        });
-    }
+        // Находим место, где включен режим ИИ:
+        if (aiState[chatId]) {
+            const triggerWords = ['нарисуй', 'сгенерируй', 'draw', 'generate', 'картинка'];
+            const isImageRequest = triggerWords.some(word => lowerText.includes(word));
+    
+            if (isImageRequest) {
+                let promptBase = text.replace(/сгенерируй|нарисуй|draw|generate|картинка/gi, '').trim();
+                await bot.sendChatAction(chatId, 'upload_photo');
+                
+                // Улучшаем промпт через ИИ
+                const refinerPrompt = `Describe a high-quality image based on: "${promptBase}". Output only description in English, no quotes.`;
+                let detailedPrompt = await getAIResponse(refinerPrompt);
+                
+                // Очистка промпта от мусора, который может сломать URL
+                detailedPrompt = detailedPrompt.replace(/["']/g, "").trim();
+    
+                const query = encodeURIComponent(detailedPrompt);
+                const imageUrl = `https://pollinations.ai/p/${query}?width=1024&height=1024&model=flux`;
+    
+                return bot.sendPhoto(chatId, imageUrl, { 
+                    caption: `🎨 Готово!\n\n Промт: ${detailedPrompt}`
+                });
+            }
 
     // Если слова "сгенерируй" нет — идет обычный текст
     await bot.sendChatAction(chatId, 'typing');
@@ -149,11 +144,6 @@ if (aiState[chatId] && !text.startsWith('/')) {
         if (text === '/start') return bot.sendMessage(chatId, `Добро пожаловать в AssistBot ${msg.from.first_name}!`);
         // if (text === '/start') return bot.sendMessage(chatId, `Покажи сиськи пожалуйста ${msg.from.first_name}🥺`);
 
-        // Выход из режима ИИ
-        if (aiState[chatId] && ['пока', 'стоп', 'stop', 'выход'].includes(lowerText)) {
-            aiState[chatId] = false;
-            return bot.sendMessage(chatId, "🤖 Режим ИИ выключен.");
-        }
         
         // Системные команды
         if (text === '/info') return bot.sendMessage(chatId, `Профиль: ${msg.from.first_name}\nID: ${userId}`);
