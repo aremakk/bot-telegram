@@ -8,7 +8,7 @@ const http = require('http');
 const { encode } = require('punycode');
 
 // --- 1. ПЕРЕМЕННЫЕ ОКРУЖЕНИЯ ---
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3005;
 const SERVER_URL = `https://assistbot-m7w5.onrender.com`; 
 const token = process.env.TELEGRAM_TOKEN; 
 const googleApiKey = process.env.GOOGLE_API_KEY; // Убедись, что в Render имя такое же!
@@ -33,7 +33,7 @@ setInterval(() => {
 // --- 5. ФУНКЦИЯ GEMINI ---
 async function getAIResponse(prompt, retryCount = 0) {
     try {
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${googleApiKey}`;
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${googleApiKey}`;
         const response = await axios.post(url, {
             contents: [{ parts: [{ text: prompt }] }]
         });
@@ -95,57 +95,21 @@ const start = () => {
         const chatId = msg.chat.id;
         const userId = msg.from.id;
 
+        console.log(chatId, userId, text);
+
         // if (!text || !WHITE_LIST.includes(userId)) return bot.sendMessage(chatId, "У тебя нет доступа к этому боту.");
+
+        if (!text) return;
 
         const lowerText = text.toLowerCase().trim();
         console.log(`📩 [${msg.from.first_name}] ID: ${userId} -> ${text}`);
 
-        // Активация ИИ через Привет или /start
-        if (lowerText === 'привет') {
-            aiState[chatId] = true;
-            return bot.sendMessage(chatId, `Привет, Босс! Режим Gemini активирован. Спрашивай что угодно.`);
+        // 1. Сначала проверяем системные команды (они должны работать всегда)
+        if (text === '/start') {
+            return bot.sendMessage(chatId, `Добро пожаловать в AssistBot ${msg.from.first_name}!`);
         }
-
-        if (aiState[chatId] && ['пока', 'стоп', 'stop', 'выход'].includes(lowerText)) {
-            aiState[chatId] = false;
-            return bot.sendMessage(chatId, "🤖 Режим ИИ выключен.");
-        }
-
-        // Находим место, где включен режим ИИ:
-        if (aiState[chatId]) {
-            const triggerWords = ['нарисуй', 'сгенерируй', 'draw', 'generate', 'картинка'];
-            const isImageRequest = triggerWords.some(word => lowerText.includes(word));
-    
-            if (isImageRequest) {
-                let promptBase = text.replace(/сгенерируй|нарисуй|draw|generate|картинка/gi, '').trim();
-                await bot.sendChatAction(chatId, 'upload_photo');
-                
-                // Улучшаем промпт через ИИ
-                const refinerPrompt = `Describe a high-quality image based on: "${promptBase}". Output only description in English, no quotes.`;
-                let detailedPrompt = await getAIResponse(refinerPrompt);
-                
-                // Очистка промпта от мусора, который может сломать URL
-                detailedPrompt = detailedPrompt.replace(/["']/g, "").trim();
-    
-                const query = encodeURIComponent(detailedPrompt);
-                const imageUrl = `https://pollinations.ai/p/${query}?width=1024&height=1024&model=flux`;
-    
-                return bot.sendPhoto(chatId, imageUrl, { 
-                    caption: `🎨 Готово!\n\n Промт: ${detailedPrompt}`
-                });
-            }
-
-    // Если слова "сгенерируй" нет — идет обычный текст
-    await bot.sendChatAction(chatId, 'typing');
-    const aiAnswer = await getAIResponse(text);
-    return bot.sendMessage(chatId, aiAnswer);
-}
-
-        if (text === '/start') return bot.sendMessage(chatId, `Добро пожаловать в AssistBot ${msg.from.first_name}!`);
         // if (text === '/start') return bot.sendMessage(chatId, `Покажи сиськи пожалуйста ${msg.from.first_name}🥺`);
-
         
-        // Системные команды
         if (text === '/info') return bot.sendMessage(chatId, `Профиль: ${msg.from.first_name}\nID: ${userId}`);
 
         if (text === '/rates') {
@@ -169,17 +133,70 @@ const start = () => {
         }
 
         if (text === '/game') return startGame(chatId);
-        
-        // Если режим ИИ включен — отправляем запрос
+
+        // 2. Управление режимом ИИ
+        if (lowerText === 'привет') {
+            aiState[chatId] = true;
+            return bot.sendMessage(chatId, `Привет, Босс! Режим Gemini активирован. Спрашивай что угодно.`);
+        }
+
+        if (aiState[chatId] && ['пока', 'стоп', 'stop', 'выход'].includes(lowerText)) {
+            aiState[chatId] = false;
+            return bot.sendMessage(chatId, "🤖 Режим ИИ выключен.");
+        }
+
+        // 3. Логика работы ИИ (если режим включен и это не команда '/')
         if (aiState[chatId] && !text.startsWith('/')) {
+            const triggerWords = ['нарисуй', 'сгенерируй', 'draw', 'generate', 'картинка'];
+            const isImageRequest = triggerWords.some(word => lowerText.includes(word));
+    
+            if (isImageRequest) {
+                let promptBase = text.replace(/сгенерируй|нарисуй|draw|generate|картинка/gi, '').trim();
+                if (!promptBase) promptBase = "cute fluffy cat";
+        
+                await bot.sendChatAction(chatId, 'upload_photo');
+                
+                try {
+                    const refinerPrompt = `High-quality photo of ${promptBase}, 8k, detailed. Max 20 words, English only.`;
+                    let detailedPrompt = await getAIResponse(refinerPrompt);
+                    detailedPrompt = detailedPrompt.replace(/["']/g, "").replace(/\n/g, " ").trim();
+        
+                    const seed = Math.floor(Math.random() * 1000000);
+                    const query = encodeURIComponent(detailedPrompt);
+                    const imageUrl = `https://pollinations.ai/p/${query}?width=1024&height=1024&seed=${seed}&model=flux&nologo=true`;
+        
+                    console.log(`🎨 Генерирую: ${imageUrl}`);
+        
+                    const response = await axios.get(imageUrl, { responseType: 'arraybuffer', timeout: 20000 });
+                    const buffer = Buffer.from(response.data, 'binary');
+        
+                    // Исправленная отправка:
+                    return bot.sendPhoto(chatId, buffer, 
+                        { 
+                            caption: `🎨 **Готово!**\n\n**Запрос:** ${detailedPrompt}`,
+                            parse_mode: 'Markdown'
+                        }, 
+                        { 
+                            filename: 'cat.jpg', 
+                            contentType: 'image/jpeg' 
+                        }
+                    );
+        
+                } catch (error) {
+                    console.error("Ошибка генерации:", error.message);
+                    return bot.sendMessage(chatId, "❌ Не удалось загрузить картинку. Попробуй еще раз через минуту.");
+                }
+            }
+
+            // Обычный текст
             await bot.sendChatAction(chatId, 'typing');
             const aiAnswer = await getAIResponse(text);
             return bot.sendMessage(chatId, aiAnswer);
         }
     
-        // Если режима ИИ нет и команда не распознана
+        // 4. Если ничего не подошло
         if (!text.startsWith('/')) {
-            return bot.sendMessage(chatId, "Команда не распознана");
+            return bot.sendMessage(chatId, "Команда не распознана. Напиши 'Привет', чтобы включить ИИ.");
         }
     });
 
